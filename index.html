@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Calendar</title>
+
+    <!-- FullCalendar CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/fullcalendar.min.css" rel="stylesheet" />
+    
+    <!-- jQuery (required by FullCalendar) -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- Moment.js (required by FullCalendar) -->
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+
+    <!-- FullCalendar JS -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@3.2.0/dist/fullcalendar.min.js"></script>
+
+    <!-- ical.js for parsing iCalendar format -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ical.js/1.4.0/ical.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        #header {
+            display: flex;
+            align-items: center; /* Align the logo and text vertically */
+            justify-content: space-between; /* Logo left, title centered */
+            width: 100%;
+        }
+        #logo {
+            max-height: 100px; /* Adjust the size of the logo */
+        }
+        #title-container {
+            flex-grow: 1; /* Allows the title container to take remaining space */
+            display: flex;
+            justify-content: center; /* Center the title */
+        }
+        h1 {
+            margin: 0; /* Remove default margin for proper alignment */
+        }
+        #calendar-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header with Logo and Title -->
+    <div id="header">
+        <!-- Company Logo (Add your logo URL here) -->
+        <img id="logo" src="images/perla-homes-logo-black-1024x508.png" alt="Company Logo" />
+        
+        <!-- Title (centered) -->
+        <div id="title-container">
+            <h1>Blue Pier</h1>
+        </div>
+    </div>
+
+    <!-- Calendar Container -->
+    <div id="calendar-container">
+        <!-- Calendar Display -->
+        <div id="calendar"></div>
+    </div>
+
+    <script>
+        // API URL and API Key
+        const API_URL = "https://app.hosthub.com/rentals/442859/icalendar/98c1307d4cd7463590459560f81c4cb3";
+        const API_KEY = "ZGY4ODM5OTktN2Y3MC00NmVkLTg1M2MtMjI4NTJiNWVmZGRk";
+
+        // Headers for API request
+        const headers = {
+            "Authorization": API_KEY,
+            "Content-Type": "application/json"
+        };
+
+        // Fetch events from the Hosthub API (iCalendar format)
+        function fetchEvents() {
+            return fetch(API_URL, { headers })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch events');
+                    }
+                    return response.text(); // Get the response as plain text (iCalendar format)
+                })
+                .then(icsData => {
+                    // Parse the iCalendar data using ical.js
+                    const jcalData = ICAL.parse(icsData); // jCal data
+                    const comp = new ICAL.Component(jcalData); // Create an ICAL component
+                    const events = comp.getAllSubcomponents('vevent'); // Get all events
+
+                    // Map the events to FullCalendar's required format
+                    return events.map(event => {
+                        const e = new ICAL.Event(event);
+
+                        // Convert ICAL.DateTime to a native JavaScript Date object
+                        const startDate = new Date(e.startDate.toJSDate()).toISOString();
+                        const endDate = new Date(e.endDate.toJSDate()).toISOString();
+                        const description = e.summary || 'No description';
+
+                        return {
+                            title: description,
+                            start: startDate, // FullCalendar requires ISO format for start date
+                            end: endDate,     // FullCalendar requires ISO format for end date
+                            description: description // Add description to each event
+                        };
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching events:', error);
+                    return [];
+                });
+        }
+
+        // Initialize the FullCalendar with events
+        $(document).ready(function() {
+            fetchEvents().then(events => {
+                // Check if no events were fetched
+                if (events.length === 0) {
+                    $('#calendar').html('<p>No events available at the moment.</p>');
+                    return;
+                }
+
+                $('#calendar').fullCalendar({
+                    events: events,
+                    editable: true,
+                    droppable: true,  // Allow dragging and dropping
+                    header: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'month,agendaWeek,agendaDay'
+                    },
+                    eventRender: function(event, element) {
+                        // Only append description if it exists
+                        if (event.description && event.description !== 'No description') {
+                            element.find('.fc-title').append('<br/><small>' + event.description + '</small>');
+                        }
+                    }
+                });
+            }).catch(error => {
+                console.error('Error during calendar setup:', error);
+                $('#calendar').html('<p>Failed to load calendar events. Please try again later.</p>');
+            });
+        });
+    </script>
+    
+</body>
+</html>
